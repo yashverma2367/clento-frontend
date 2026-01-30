@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { makeAuthenticatedRequest } from '../../../lib/axios-utils';
-import { Campaign } from '../../../types/campaign';
+import { Campaign, CampaignStatus } from '../../../types/campaign';
 import { toast } from 'sonner';
 
 interface ICampaign extends Campaign {
@@ -26,21 +26,19 @@ interface ICampaign extends Campaign {
     workflowStatus: {
         isRunning: boolean;
         isPaused?: boolean;
-        workflowId?: string;
-        runId?: string;
         status?: string;
     };
 }
 
 const getStatusBadge = (status: string) => {
     switch (status) {
-        case 'active':
+        case 'IN_PROGRESS':
             return <Badge className="bg-success text-black glow-green">Active</Badge>;
-        case 'draft':
+        case 'DRAFT':
             return <Badge variant="secondary">Draft</Badge>;
-        case 'completed':
+        case 'COMPLETED':
             return <Badge className="bg-blue-500 text-white">Completed</Badge>;
-        case 'paused':
+        case 'PAUSED':
             return <Badge className="bg-warning text-black">Paused</Badge>;
         default:
             return <Badge variant="outline">{status}</Badge>;
@@ -128,12 +126,17 @@ export default function CampaignsPage() {
     const handlePauseOrPlay = async (campaignId: string) => {
         const campaign = campaigns.find(it => it.id === campaignId);
 
+        if (campaign?.status === CampaignStatus.COMPLETED) {
+            toast.error('Campaign is completed');
+            return;
+        }
+
         if (campaign?.workflowStatus?.isPaused) {
             await handleResume(campaignId);
             return;
         }
 
-        if (campaign?.workflowStatus?.workflowId) {
+        if (campaign?.status === CampaignStatus.IN_PROGRESS) {
             await handlePause(campaignId);
             return;
         }
@@ -258,14 +261,11 @@ export default function CampaignsPage() {
                                         <TableCell>
                                             <div className="flex items-center gap-1.5">
                                                 <Button className="cursor-pointer" size="sm" variant="outline" onClick={() => handlePauseOrPlay(campaign.id)}>
-                                                    {campaign?.workflowStatus?.isPaused ? <PlayIcon size={20} /> : campaign?.workflowStatus?.workflowId ? <PauseIcon size={20} /> : <PlayIcon size={20} />}
+                                                    {campaign?.status === CampaignStatus.IN_PROGRESS ? <PauseIcon size={20} /> : <PlayIcon size={20} />}
                                                 </Button>
                                                 <Button className="cursor-pointer" size="sm" variant="outline" onClick={() => handleEditCampaign(campaign.id)}>
                                                     <Edit className="w-3.5 h-3.5" />
                                                 </Button>
-                                                {/* <Button size="sm" variant="outline">
-                                                    <BarChart3 className="w-3.5 h-3.5" />
-                                                </Button> */}
                                                 <Button size="sm" variant="outline" className="text-error hover:text-error cursor-pointer" onClick={() => handleDeleteCampaign(campaign.id)} disabled={isDeleting.includes(campaign.id)}>
                                                     {isDeleting.includes(campaign.id) ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                                                 </Button>
